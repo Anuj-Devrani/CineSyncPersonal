@@ -5,8 +5,16 @@ import getpass
 import logging
 import argparse
 from textual.app import App, ComposeResult
-from textual.widgets import Button, Header, Footer, Static, DirectoryTree, Pretty, RichLog
-from textual.containers import Container, Vertical, Horizontal
+from textual.widgets import (
+    Button,
+    Header,
+    Footer,
+    Static,
+    Pretty,
+    RichLog,
+    SelectionList,
+)
+from textual.containers import Container, Vertical
 from textual.screen import Screen
 from textual.binding import Binding
 from MediaHub.processors.symlink_creator import create_symlinks
@@ -17,7 +25,16 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Local imports from MediaHub
 from MediaHub.utils.logging_utils import log_message
-from MediaHub.processors.db_utils import get_database_stats, vacuum_database, verify_database_integrity, export_database, import_database, search_database, optimize_database, reset_database
+from MediaHub.processors.db_utils import (
+    get_database_stats,
+    vacuum_database,
+    verify_database_integrity,
+    export_database,
+    import_database,
+    search_database,
+    optimize_database,
+    reset_database,
+)
 
 # Script Metadata
 SCRIPT_VERSION = "3.0"
@@ -28,23 +45,47 @@ SCRIPTS_FOLDER = "MediaHub"
 ENV_FILE = ".env"
 
 # Setup logging
-logging.basicConfig(filename='script.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="script.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 # Determine the Python command based on the OS
-python_command = 'python' if os.name == 'nt' else 'python3'
+python_command = "python" if os.name == "nt" else "python3"
+
 
 class MainMenu(Screen):
     def compose(self) -> ComposeResult:
         yield Header(name="CineSync")
         yield Footer()
         with Container(classes="main-menu"):
-            yield Static("CineSync", classes="title")
+            yield Static("[bold #03AC13]CineSync[/bold #03AC13]", classes="title")
             yield Static("Your personal media organizer.", classes="subtitle")
+            yield Static(
+                "\n[italic]Organize your media library with ease.[/italic]\n",
+                classes="tagline",
+            )
             with Vertical(classes="main-menu-buttons"):
-                yield Button("Sort Library", id="sort", variant="primary")
-                yield Button("Edit .env file", id="edit_env", variant="primary")
-                yield Button("Database Management", id="db_manage", variant="primary")
-                yield Button("Exit", id="exit", variant="error")
+                yield Button(
+                    "Sort Library", id="sort", variant="primary", classes="menu-button"
+                )
+                yield Button(
+                    "Edit .env file",
+                    id="edit_env",
+                    variant="primary",
+                    classes="menu-button",
+                )
+                yield Button(
+                    "Database Management",
+                    id="db_manage",
+                    variant="primary",
+                    classes="menu-button",
+                )
+                yield Button("Exit", id="exit", variant="error", classes="menu-button")
+            yield Static(
+                "\n[dim]Version: 3.0 | Date: 2025-07-06[/dim]", classes="version-info"
+            )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "sort":
@@ -55,6 +96,7 @@ class MainMenu(Screen):
             self.app.push_screen(DatabaseMenu())
         elif event.button.id == "exit":
             self.app.exit()
+
 
 class DatabaseMenu(Screen):
     def compose(self) -> ComposeResult:
@@ -70,7 +112,7 @@ class DatabaseMenu(Screen):
             Button("Search Database", id="db_search", variant="primary"),
             Button("Reset Database", id="db_reset", variant="warning"),
             Button("Back to Main Menu", id="back", variant="default"),
-            classes="db-menu"
+            classes="db-menu",
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -101,30 +143,48 @@ class DatabaseMenu(Screen):
         elif event.button.id == "back":
             self.app.pop_screen()
 
+
 class FileSelectionScreen(Screen):
-    def __init__(self):
-        super().__init__()
-        self.selected_paths = []
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Back"),
+    ]
 
     def compose(self) -> ComposeResult:
-        src_dirs, _ = get_directories()
         yield Header(name="File Selection")
         yield Footer()
-        for src_dir in src_dirs:
-            safe_id = src_dir.replace('/', '_').replace('\\', '_')
-            yield DirectoryTree(src_dir, id=f"dir_tree_{safe_id}")
-        yield Button("Sort Selected", id="sort_selected", variant="success")
+        with Container(classes="file-selection-container"):
+            yield Static(
+                "Select files and folders to sort:", classes="file-selection-prompt"
+            )
+            yield SelectionList(id="file_checklist", classes="file-selection-checklist")
+            yield Button(
+                "Sort Selected",
+                id="sort_selected",
+                variant="success",
+                classes="file-selection-button",
+            )
 
-    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        self.selected_paths.append(event.path)
+    def on_mount(self) -> None:
+        src_dirs, _ = get_directories()
+        selection_list = self.query_one(SelectionList)
+        options = []
+        for src_dir in src_dirs:
+            for root, dirs, files in os.walk(src_dir):
+                for name in dirs:
+                    options.append(
+                        (f"{os.path.join(root, name)}/", os.path.join(root, name))
+                    )
+                for name in files:
+                    options.append((os.path.join(root, name), os.path.join(root, name)))
+        selection_list.add_options(options)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "sort_selected":
-            if self.selected_paths:
-                self.app.push_screen(LogScreen(self.selected_paths))
-            else:
-                # Handle case where no files are selected
-                pass
+            selection_list = self.query_one(SelectionList)
+            selected_paths = selection_list.selected
+            if selected_paths:
+                self.app.push_screen(LogScreen(selected_paths))
+
 
 class LogScreen(Screen):
     def __init__(self, paths_to_sort):
@@ -134,17 +194,37 @@ class LogScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header(name="Sorting Logs")
         yield Footer()
-        yield RichLog(id="log_view", wrap=True)
-        yield Button("Back", id="back", variant="default")
+        with Container(classes="log-screen-container"):
+            yield RichLog(id="log_view", wrap=True)
+            yield Button(
+                "Back", id="back", variant="default", classes="log-screen-button"
+            )
 
     def on_mount(self) -> None:
+        self.run_sorting()
+
+    def run_sorting(self):
         log_view = self.query_one(RichLog)
         _, dest_dir = get_directories()
-        create_symlinks(self.paths_to_sort, dest_dir, auto_select=True, console=log_view)
+
+        def log_to_widget(message, level="INFO"):
+            if level == "INFO":
+                log_view.write(f"[green]INFO[/green]: {message}")
+            elif level == "WARNING":
+                log_view.write(f"[yellow]WARNING[/yellow]: {message}")
+            elif level == "ERROR":
+                log_view.write(f"[red]ERROR[/red]: {message}")
+            else:
+                log_view.write(f"[white]{level}[/white]: {message}")
+
+        create_symlinks(
+            self.paths_to_sort, dest_dir, auto_select=True, console_log=log_to_widget
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back":
             self.app.pop_screen()
+
 
 class ResultScreen(Screen):
     def __init__(self, content):
@@ -161,6 +241,7 @@ class ResultScreen(Screen):
         if event.button.id == "back":
             self.app.pop_screen()
 
+
 class CineSync(App):
     CSS_PATH = "cinesync.css"
     BINDINGS = [
@@ -174,9 +255,12 @@ class CineSync(App):
     def action_toggle_dark(self) -> None:
         self.dark = not self.dark
 
+
 def main():
     parser = argparse.ArgumentParser(description="CineSync TUI")
-    parser.add_argument("--sort-all", action="store_true", help="Sort all files without prompting")
+    parser.add_argument(
+        "--sort-all", action="store_true", help="Sort all files without prompting"
+    )
     args = parser.parse_args()
 
     if args.sort_all:
@@ -191,6 +275,7 @@ def main():
 
     app = CineSync()
     app.run()
+
 
 if __name__ == "__main__":
     main()

@@ -1,36 +1,109 @@
-
 Screen {
-    layout: vertical;
+  layout: vertical;
 }
 
 .main-menu {
-    align: center middle;
+  align: center middle;
+  background: #2c3e50;
+  color: #ecf0f1;
 }
 
 .main-menu-buttons {
-    padding: 1;
-    width: 50%;
+  padding: 1;
+  width: 50%;
+  align: center middle;
+}
+
+.menu-button {
+  width: 80%;
+  margin-bottom: 1;
 }
 
 .db-menu {
-    align: center middle;
+  align: center middle;
 }
 
 .banner {
-    width: 100%;
-    text-align: center;
+  width: 100%;
+  text-align: center;
 }
 
 .title {
-    width: 100%;
-    text-align: center;
-    padding: 1;
-    background: $primary;
-    color: $text;
+  width: 100%;
+  text-align: center;
+  padding: 1;
+  background: #34495e;
+  color: #ecf0f1;
+  text-style: bold;
 }
 
 .subtitle {
-    width: 100%;
-    text-align: center;
-    padding: 1;
+  width: 100%;
+  text-align: center;
+  padding: 1;
+  color: #bdc3c7;
+}
+
+.tagline {
+  width: 100%;
+  text-align: center;
+  padding: 0 0 2 0;
+  color: #95a5a6;
+}
+
+.version-info {
+  width: 100%;
+  text-align: center;
+  padding: 2 0 1 0;
+  color: #7f8c8d;
+}
+
+#file_checklist {
+  height: 1fr;
+  border: thick #34495e;
+  margin: 1;
+  background: #2c3e50;
+}
+
+.file-selection-container {
+  layout: vertical;
+  align: center middle;
+  height: 1fr;
+}
+
+.file-selection-prompt {
+  width: 100%;
+  text-align: center;
+  padding: 1;
+  color: #bdc3c7;
+}
+
+.file-selection-checklist {
+  width: 80%;
+  height: 1fr;
+}
+
+.file-selection-button {
+  width: 50%;
+  margin-top: 1;
+}
+
+#log_view {
+  height: 1fr;
+  border: thick #34495e;
+  margin: 1;
+  padding: 1;
+  background: #2c3e50;
+  color: #ecf0f1;
+}
+
+.log-screen-container {
+  layout: vertical;
+  height: 1fr;
+}
+
+.log-screen-button {
+  width: 20%;
+  margin-top: 1;
+  align: center middle;
 }

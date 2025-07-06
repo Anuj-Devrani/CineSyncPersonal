@@ -35,8 +35,8 @@ def process_file(args, processed_files_log, force=False, console=None):
 
     # Skip if not a known file type
     if not get_known_types(file):
-        if console:
-            console.print(f"Skipping unsupported file type: {file}")
+        if console_log:
+            console_log(f"Skipping unsupported file type: {file}")
         else:
             log_message(f"Skipping unsupported file type: {file}", level="INFO")
         return
@@ -47,36 +47,36 @@ def process_file(args, processed_files_log, force=False, console=None):
     if force:
         existing_symlink_path = get_existing_symlink_info(src_file)
         if existing_symlink_path:
-            if console:
-                console.print(f"Force mode: Found existing symlink at {existing_symlink_path}")
+            if console_log:
+                console_log(f"Force mode: Found existing symlink at {existing_symlink_path}")
             else:
                 log_message(f"Force mode: Found existing symlink at {existing_symlink_path}", level="DEBUG")
             parent_dir = os.path.dirname(existing_symlink_path)
             parent_parent_dir = os.path.dirname(parent_dir)
             os.remove(existing_symlink_path)
-            if console:
-                console.print(f"Force mode: Initiating reprocessing of {file}")
+            if console_log:
+                console_log(f"Force mode: Initiating reprocessing of {file}")
             else:
                 log_message(f"Force mode: Initiating reprocessing of {file}", level="INFO")
 
             # Delete if parent directory is empty
             try:
                 if not os.listdir(parent_dir):
-                    if console:
-                        console.print(f"Deleting empty directory: {parent_dir}")
+                    if console_log:
+                        console_log(f"Deleting empty directory: {parent_dir}")
                     else:
                         log_message(f"Deleting empty directory: {parent_dir}", level="INFO")
                     os.rmdir(parent_dir)
 
                     if not os.listdir(parent_parent_dir):
-                        if console:
-                            console.print(f"Deleting empty directory: {parent_parent_dir}")
+                        if console_log:
+                            console_log(f"Deleting empty directory: {parent_parent_dir}")
                         else:
                             log_message(f"Deleting empty directory: {parent_parent_dir}", level="INFO")
                         os.rmdir(parent_parent_dir)
             except OSError as e:
-                if console:
-                    console.print(f"Error deleting directory: {e}")
+                if console_log:
+                    console_log(f"Error deleting directory: {e}")
                 else:
                     log_message(f"Error deleting directory: {e}", level="WARNING")
 
@@ -88,20 +88,20 @@ def process_file(args, processed_files_log, force=False, console=None):
                 for filename in os.listdir(dir_path):
                     potential_new_path = os.path.join(dir_path, filename)
                     if os.path.islink(potential_new_path) and os.readlink(potential_new_path) == src_file:
-                        if console:
-                            console.print(f"Detected renamed file: {existing_dest_path} -> {potential_new_path}")
+                        if console_log:
+                            console_log(f"Detected renamed file: {existing_dest_path} -> {potential_new_path}")
                         else:
                             log_message(f"Detected renamed file: {existing_dest_path} -> {potential_new_path}", level="INFO")
                         update_renamed_file(existing_dest_path, potential_new_path)
                         return
 
-            if console:
-                console.print(f"Destination file missing. Re-processing: {src_file}")
+            if console_log:
+                console_log(f"Destination file missing. Re-processing: {src_file}")
             else:
                 log_message(f"Destination file missing. Re-processing: {src_file}", level="INFO")
         else:
-            if console:
-                console.print(f"File already processed. Source: {src_file}, Existing destination: {existing_dest_path}")
+            if console_log:
+                console_log(f"File already processed. Source: {src_file}, Existing destination: {existing_dest_path}")
             else:
                 log_message(f"File already processed. Source: {src_file}, Existing destination: {existing_dest_path}", level="INFO")
             return
@@ -111,8 +111,8 @@ def process_file(args, processed_files_log, force=False, console=None):
                              if os.path.islink(full_dest_file) and os.readlink(full_dest_file) == src_file), None)
 
     if existing_symlink and not force:
-        if console:
-            console.print(f"Symlink already exists for {os.path.basename(file)}")
+        if console_log:
+            console_log(f"Symlink already exists for {os.path.basename(file)}")
         else:
             log_message(f"Symlink already exists for {os.path.basename(file)}", level="INFO")
         save_processed_file(src_file, existing_symlink, tmdb_id)
@@ -129,22 +129,22 @@ def process_file(args, processed_files_log, force=False, console=None):
     is_hash_name = hash_pattern.search(file) is not None
 
     if is_hash_name and not tmdb_id and not imdb_id:
-        if console:
-            console.print(f"Skipping file with hash lacking media identifiers: {file}")
+        if console_log:
+            console_log(f"Skipping file with hash lacking media identifiers: {file}")
         else:
             log_message(f"Skipping file with hash lacking media identifiers: {file}", level="INFO")
         return
 
     if force_show:
         is_show = True
-        if console:
-            console.print(f"Processing as show based on Force Show flag: {file}")
+        if console_log:
+            console_log(f"Processing as show based on Force Show flag: {file}")
         else:
             log_message(f"Processing as show based on Force Show flag: {file}", level="INFO")
     elif force_movie:
         is_show = False
-        if console:
-            console.print(f"Processing as movie based on Force Movie flag: {file}")
+        if console_log:
+            console_log(f"Processing as movie based on Force Movie flag: {file}")
         else:
             log_message(f"Processing as movie based on Force Movie flag: {file}", level="INFO")
     else:
@@ -157,27 +157,27 @@ def process_file(args, processed_files_log, force=False, console=None):
         # Check file path and name for show patterns
         if season_pattern.search(src_file):
             is_show = True
-            if console:
-                console.print(f"Processing as show based on directory structure: {src_file}")
+            if console_log:
+                console_log(f"Processing as show based on directory structure: {src_file}")
             else:
                 log_message(f"Processing as show based on directory structure: {src_file}", level="DEBUG")
         elif episode_match or mini_series_match:
             is_show = True
-            if console:
-                console.print(f"Processing as show based on file pattern: {src_file}")
+            if console_log:
+                console_log(f"Processing as show based on file pattern: {src_file}")
             else:
                 log_message(f"Processing as show based on file pattern: {src_file}", level="DEBUG")
         elif anime_episode_pattern.search(file) or anime_patterns.search(file):
             is_anime_show = True
-            if console:
-                console.print(f"Processing as show based on anime pattern: {src_file}")
+            if console_log:
+                console_log(f"Processing as show based on anime pattern: {src_file}")
             else:
                 log_message(f"Processing as show based on anime pattern: {src_file}", level="DEBUG")
 
     # Check if the file should be considered an junk based on size
     if is_junk_file(file, src_file):
-        if console:
-            console.print(f"Skipping Junk files: {file} based on size")
+        if console_log:
+            console_log(f"Skipping Junk files: {file} based on size")
         else:
             log_message(f"Skipping Junk files: {file} based on size", level="DEBUG")
         return
@@ -188,8 +188,8 @@ def process_file(args, processed_files_log, force=False, console=None):
 
         # Skip symlink creation for extras unless skipped from env or force_extra is enabled
         if is_extra and not force_extra and is_skip_extras_folder_enabled():
-            if console:
-                console.print(f"Skipping symlink creation for extra file: {file}")
+            if console_log:
+                console_log(f"Skipping symlink creation for extra file: {file}")
             else:
                 log_message(f"Skipping symlink creation for extra file: {file}", level="INFO")
             return
@@ -197,8 +197,8 @@ def process_file(args, processed_files_log, force=False, console=None):
         dest_file, tmdb_id = process_movie(src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_enabled, rename_enabled, auto_select, dest_index, tmdb_id=tmdb_id, imdb_id=imdb_id)
 
     if dest_file is None:
-        if console:
-            console.print(f"Destination file path is None for {file}. Skipping.")
+        if console_log:
+            console_log(f"Destination file path is None for {file}. Skipping.")
         else:
             log_message(f"Destination file path is None for {file}. Skipping.", level="WARNING")
         return
@@ -209,22 +209,22 @@ def process_file(args, processed_files_log, force=False, console=None):
     if os.path.islink(dest_file):
         existing_src = os.readlink(dest_file)
         if existing_src == src_file:
-            if console:
-                console.print(f"Symlink already exists and is correct: {dest_file} -> {src_file}")
+            if console_log:
+                console_log(f"Symlink already exists and is correct: {dest_file} -> {src_file}")
             else:
                 log_message(f"Symlink already exists and is correct: {dest_file} -> {src_file}", level="INFO")
             save_processed_file(src_file, dest_file, tmdb_id)
             return
         else:
-            if console:
-                console.print(f"Updating existing symlink: {dest_file} -> {src_file} (was: {existing_src})")
+            if console_log:
+                console_log(f"Updating existing symlink: {dest_file} -> {src_file} (was: {existing_src})")
             else:
                 log_message(f"Updating existing symlink: {dest_file} -> {src_file} (was: {existing_src})", level="INFO")
             os.remove(dest_file)
 
     if os.path.exists(dest_file) and not os.path.islink(dest_file):
-        if console:
-            console.print(f"File already exists at destination: {os.path.basename(dest_file)}")
+        if console_log:
+            console_log(f"File already exists at destination: {os.path.basename(dest_file)}")
         else:
             log_message(f"File already exists at destination: {os.path.basename(dest_file)}", level="INFO")
         return
@@ -232,8 +232,8 @@ def process_file(args, processed_files_log, force=False, console=None):
     # Create symlink
     try:
         os.symlink(src_file, dest_file)
-        if console:
-            console.print(f"Created symlink: {dest_file} -> {src_file}")
+        if console_log:
+            console_log(f"Created symlink: {dest_file} -> {src_file}")
         else:
             log_message(f"Created symlink: {dest_file} -> {src_file}", level="INFO")
         save_processed_file(src_file, dest_file, tmdb_id, season_number)
@@ -244,25 +244,25 @@ def process_file(args, processed_files_log, force=False, console=None):
         return (dest_file, True, src_file)
 
     except FileExistsError:
-        if console:
-            console.print(f"File already exists: {dest_file}. Skipping symlink creation.")
+        if console_log:
+            console_log(f"File already exists: {dest_file}. Skipping symlink creation.")
         else:
             log_message(f"File already exists: {dest_file}. Skipping symlink creation.", level="WARNING")
     except OSError as e:
-        if console:
-            console.print(f"Error creating symlink for {src_file}: {e}")
+        if console_log:
+            console_log(f"Error creating symlink for {src_file}: {e}")
         else:
             log_message(f"Error creating symlink for {src_file}: {e}", level="ERROR")
     except Exception as e:
         error_message = f"Task failed with exception: {e}\n{traceback.format_exc()}"
-        if console:
-            console.print(error_message)
+        if console_log:
+            console_log(error_message)
         else:
             log_message(error_message, level="ERROR")
 
     return None
 
-def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, force=False, mode='create', tmdb_id=None, imdb_id=None, tvdb_id=None, force_show=False, force_movie=False, season_number=None, episode_number=None, force_extra=False, console=None):
+def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, force=False, mode='create', tmdb_id=None, imdb_id=None, tvdb_id=None, force_show=False, force_movie=False, season_number=None, episode_number=None, force_extra=False, console_log=None):
     global log_imported_db
 
     os.makedirs(dest_dir, exist_ok=True)
@@ -302,8 +302,8 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                 else:
                     # Handle directory
                     actual_dir = os.path.basename(os.path.normpath(src_dir))
-                    if console:
-                        console.print(f"Scanning source directory: {src_dir} (actual: {actual_dir})")
+                    if console_log:
+                        console_log(f"Scanning source directory: {src_dir} (actual: {actual_dir})")
                     else:
                         log_message(f"Scanning source directory: {src_dir} (actual: {actual_dir})", level="INFO")
 
@@ -314,25 +314,25 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                     for root, _, files in os.walk(src_dir):
                         for file in files:
                             if error_event.is_set():
-                                if console:
-                                    console.print("Stopping further processing due to an earlier error.")
+                                if console_log:
+                                    console_log("Stopping further processing due to an earlier error.")
                                 else:
                                     log_message("Stopping further processing due to an earlier error.", level="WARNING")
                                 return
 
                             src_file = os.path.join(root, file)
 
-                            if mode == 'create' and src_file in processed_files_log and not force:
-                                continue
+                    if mode == 'create' and src_file in processed_files_log and not force:
+                        continue
 
-                            args = (src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_enabled, rename_enabled, auto_select, dest_index, tmdb_id, imdb_id, tvdb_id, force_show, force_movie, season_number, episode_number, force_extra)
-                            tasks.append(executor.submit(process_file, args, processed_files_log, force, console))
+                    args = (src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_enabled, rename_enabled, auto_select, dest_index, tmdb_id, imdb_id, tvdb_id, force_show, force_movie, season_number, episode_number, force_extra)
+                    tasks.append(executor.submit(process_file, args, processed_files_log, force, console_log))
 
             # Process completed tasks
             for task in as_completed(tasks):
                 if error_event.is_set():
-                    if console:
-                        console.print("Error detected during task execution. Stopping all tasks.")
+                    if console_log:
+                        console_log("Error detected during task execution. Stopping all tasks.")
                     else:
                         log_message("Error detected during task execution. Stopping all tasks.", level="WARNING")
                     return
@@ -344,16 +344,16 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                         if mode == 'monitor':
                             update_single_file_index(dest_file, is_symlink, target_path)
                 except Exception as e:
-                    if console:
-                        console.print(f"Error processing task: {str(e)}")
+                    if console_log:
+                        console_log(f"Error processing task: {str(e)}")
                     else:
                         log_message(f"Error processing task: {str(e)}", level="ERROR")
     else:
         # Process sequentially when auto-select is disabled
         for src_dir in src_dirs:
             if error_event.is_set():
-                if console:
-                    console.print("Stopping further processing due to an earlier error.")
+                if console_log:
+                    console_log("Stopping further processing due to an earlier error.")
                 else:
                     log_message("Stopping further processing due to an earlier error.", level="WARNING")
                 return
@@ -370,7 +370,7 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                                 else build_dest_index(dest_dir))
 
                     args = (src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_enabled, rename_enabled, auto_select, dest_index, tmdb_id, imdb_id, tvdb_id, force_show, force_movie, season_number, episode_number, force_extra)
-                    result = process_file(args, processed_files_log, force, console)
+                    result = process_file(args, processed_files_log, force, console_log)
 
                     if result and isinstance(result, tuple) and len(result) == 3:
                         dest_file, is_symlink, target_path = result
@@ -379,8 +379,8 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                 else:
                     # Handle directory
                     actual_dir = os.path.basename(os.path.normpath(src_dir))
-                    if console:
-                        console.print(f"Scanning source directory: {src_dir} (actual: {actual_dir})")
+                    if console_log:
+                        console_log(f"Scanning source directory: {src_dir} (actual: {actual_dir})")
                     else:
                         log_message(f"Scanning source directory: {src_dir} (actual: {actual_dir})", level="INFO")
 
@@ -391,8 +391,8 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                     for root, _, files in os.walk(src_dir):
                         for file in files:
                             if error_event.is_set():
-                                if console:
-                                    console.print("Stopping further processing due to an earlier error.")
+                                if console_log:
+                                    console_log("Stopping further processing due to an earlier error.")
                                 else:
                                     log_message("Stopping further processing due to an earlier error.", level="WARNING")
                                 return
@@ -410,7 +410,7 @@ def create_symlinks(src_dirs, dest_dir, auto_select=False, single_path=None, for
                                 if mode == 'monitor':
                                     update_single_file_index(dest_file, is_symlink, target_path)
             except Exception as e:
-                if console:
-                    console.print(f"Error processing directory {src_dir}: {str(e)}")
+                if console_log:
+                    console_log(f"Error processing directory {src_dir}: {str(e)}")
                 else:
                     log_message(f"Error processing directory {src_dir}: {str(e)}", level="ERROR")
