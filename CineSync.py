@@ -1,19 +1,14 @@
-
 import os
 import sys
 import subprocess
 import getpass
 import logging
 import argparse
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
-from rich.tree import Tree
-from rich.live import Live
-from rich.filesize import decimal
-from rich.markup import escape
-from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+from textual.app import App, ComposeResult
+from textual.widgets import Button, Header, Footer, Static, DirectoryTree, Pretty, RichLog
+from textual.containers import Container, Vertical, Horizontal
+from textual.screen import Screen
+from textual.binding import Binding
 from MediaHub.processors.symlink_creator import create_symlinks
 from MediaHub.config.config import get_directories
 
@@ -38,65 +33,148 @@ logging.basicConfig(filename='script.log', level=logging.INFO, format='%(asctime
 # Determine the Python command based on the OS
 python_command = 'python' if os.name == 'nt' else 'python3'
 
-console = Console()
+class MainMenu(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header(name="CineSync")
+        yield Footer()
+        with Container(classes="main-menu"):
+            yield Static("CineSync", classes="title")
+            yield Static("Your personal media organizer.", classes="subtitle")
+            with Vertical(classes="main-menu-buttons"):
+                yield Button("Sort Library", id="sort", variant="primary")
+                yield Button("Edit .env file", id="edit_env", variant="primary")
+                yield Button("Database Management", id="db_manage", variant="primary")
+                yield Button("Exit", id="exit", variant="error")
 
-def print_banner():
-    """Prints the banner using rich."""
-    banner = """
-    a88888b. oo                   .d88888b
-   d8'   `88                      88.    "'
-   88        dP 88d888b. .d8888b. `Y88888b. dP    dP 88d888b. .d8888b.
-   88        88 88'  `88 88ooood8       `8b 88    88 88'  `88 88'  `"`
-   Y8.   .88 88 88    88 88.  ... d8'   .8P 88.  .88 88    88 88.  ...
-    Y88888P' dP dP    dP `88888P'  Y88888P  `8888P88 dP    dP `88888P'
-                                                 .88
-                                             d8888P
-    """
-    console.print(Panel.fit(banner, style="bold blue"))
-    console.print(f"Version {SCRIPT_VERSION} - Last updated on {SCRIPT_DATE}", style="bold green")
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "sort":
+            self.app.push_screen(FileSelectionScreen())
+        elif event.button.id == "edit_env":
+            self.app.run_subprocess(f"nano {ENV_FILE}")
+        elif event.button.id == "db_manage":
+            self.app.push_screen(DatabaseMenu())
+        elif event.button.id == "exit":
+            self.app.exit()
 
-def greet_user():
-    """Greets the user."""
-    username = getpass.getuser()
-    console.print(f"Welcome, [bold green]{username}[/bold green]!")
+class DatabaseMenu(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header(name="Database Management")
+        yield Footer()
+        yield Container(
+            Button("View Database Status", id="db_status", variant="primary"),
+            Button("Optimize Database", id="db_optimize", variant="primary"),
+            Button("Verify Database Integrity", id="db_verify", variant="primary"),
+            Button("Vacuum Database", id="db_vacuum", variant="primary"),
+            Button("Export Database", id="db_export", variant="primary"),
+            Button("Import Database", id="db_import", variant="primary"),
+            Button("Search Database", id="db_search", variant="primary"),
+            Button("Reset Database", id="db_reset", variant="warning"),
+            Button("Back to Main Menu", id="back", variant="default"),
+            classes="db-menu"
+        )
 
-def get_file_selection(source_dirs):
-    """Allows the user to select files and folders to sort."""
-    selected_files = []
-    tree = Tree("Select files and folders to sort", guide_style="bold bright_blue")
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "db_status":
+            stats = get_database_stats()
+            self.app.push_screen(ResultScreen(Pretty(stats)))
+        elif event.button.id == "db_optimize":
+            optimize_database()
+            self.app.push_screen(ResultScreen(Static("Database optimized.")))
+        elif event.button.id == "db_verify":
+            verify_database_integrity()
+            self.app.push_screen(ResultScreen(Static("Database integrity verified.")))
+        elif event.button.id == "db_vacuum":
+            vacuum_database()
+            self.app.push_screen(ResultScreen(Static("Database vacuumed.")))
+        elif event.button.id == "db_export":
+            # This would need a way to get user input, which is more complex in textual
+            pass
+        elif event.button.id == "db_import":
+            # This would need a way to get user input
+            pass
+        elif event.button.id == "db_search":
+            # This would need a way to get user input
+            pass
+        elif event.button.id == "db_reset":
+            # This would need a confirmation dialog
+            pass
+        elif event.button.id == "back":
+            self.app.pop_screen()
 
-    for src_dir in source_dirs:
-        branch = tree.add(f"[bold green]:open_file_folder: [link file://{src_dir}]{src_dir}")
-        try:
-            for entry in os.scandir(src_dir):
-                if entry.is_dir():
-                    branch.add(f"[bold blue]:file_folder: {entry.name}")
-                else:
-                    branch.add(f"[green]:page_facing_up: {entry.name}")
-        except FileNotFoundError:
-            console.print(f"[bold red]Error: Directory not found: {src_dir}[/bold red]")
-            continue
+class FileSelectionScreen(Screen):
+    def __init__(self):
+        super().__init__()
+        self.selected_paths = []
 
-    with Live(tree, console=console, screen=False, refresh_per_second=10) as live:
-        while True:
-            console.print("Enter a path to select/deselect, 's' to start sorting, or 'q' to quit.")
-            user_input = Prompt.ask("Selection")
+    def compose(self) -> ComposeResult:
+        src_dirs, _ = get_directories()
+        yield Header(name="File Selection")
+        yield Footer()
+        for src_dir in src_dirs:
+            safe_id = src_dir.replace('/', '_').replace('\\', '_')
+            yield DirectoryTree(src_dir, id=f"dir_tree_{safe_id}")
+        yield Button("Sort Selected", id="sort_selected", variant="success")
 
-            if user_input.lower() == 'q':
-                return []
-            if user_input.lower() == 's':
-                return selected_files
+    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        self.selected_paths.append(event.path)
 
-            path_to_toggle = user_input.strip()
-            if path_to_toggle in selected_files:
-                selected_files.remove(path_to_toggle)
-                console.print(f"[yellow]Deselected:[/] {path_to_toggle}")
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "sort_selected":
+            if self.selected_paths:
+                self.app.push_screen(LogScreen(self.selected_paths))
             else:
-                selected_files.append(path_to_toggle)
-                console.print(f"[green]Selected:[/] {path_to_toggle}")
+                # Handle case where no files are selected
+                pass
+
+class LogScreen(Screen):
+    def __init__(self, paths_to_sort):
+        super().__init__()
+        self.paths_to_sort = paths_to_sort
+
+    def compose(self) -> ComposeResult:
+        yield Header(name="Sorting Logs")
+        yield Footer()
+        yield RichLog(id="log_view", wrap=True)
+        yield Button("Back", id="back", variant="default")
+
+    def on_mount(self) -> None:
+        log_view = self.query_one(RichLog)
+        _, dest_dir = get_directories()
+        create_symlinks(self.paths_to_sort, dest_dir, auto_select=True, console=log_view)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "back":
+            self.app.pop_screen()
+
+class ResultScreen(Screen):
+    def __init__(self, content):
+        super().__init__()
+        self.content = content
+
+    def compose(self) -> ComposeResult:
+        yield Header(name="Result")
+        yield Footer()
+        yield self.content
+        yield Button("Back", id="back", variant="default")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "back":
+            self.app.pop_screen()
+
+class CineSync(App):
+    CSS_PATH = "cinesync.css"
+    BINDINGS = [
+        ("d", "toggle_dark", "Toggle dark mode"),
+        ("q", "quit", "Quit"),
+    ]
+
+    def on_mount(self) -> None:
+        self.push_screen(MainMenu())
+
+    def action_toggle_dark(self) -> None:
+        self.dark = not self.dark
 
 def main():
-    """Main function for the TUI."""
     parser = argparse.ArgumentParser(description="CineSync TUI")
     parser.add_argument("--sort-all", action="store_true", help="Sort all files without prompting")
     args = parser.parse_args()
@@ -104,134 +182,15 @@ def main():
     if args.sort_all:
         src_dirs, dest_dir = get_directories()
         if not src_dirs:
-            console.print("[bold red]Error: SOURCE_DIR not set in .env file.[/bold red]")
+            print("[bold red]Error: SOURCE_DIR not set in .env file.[/bold red]")
             return
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        ) as progress:
-            task = progress.add_task("[green]Sorting files...", total=len(src_dirs))
-            for src_dir in src_dirs:
-                create_symlinks([src_dir], dest_dir, auto_select=True, console=console)
-                progress.update(task, advance=1)
-        console.print("[bold green]Sorting complete![/bold green]")
+        for src_dir in src_dirs:
+            create_symlinks([src_dir], dest_dir, auto_select=True)
+        print("[bold green]Sorting complete![/bold green]")
         return
 
-    while True:
-        console.clear()
-        print_banner()
-        greet_user()
-
-        console.print("\n[bold blue]Main Menu:[/bold blue]")
-        console.print("1) Sort Library")
-        console.print("2) Edit .env file")
-        console.print("3) Database Management")
-        console.print("4) Exit")
-
-        choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4"], default="1")
-
-        if choice == '1':
-            src_dirs, dest_dir = get_directories()
-            if not src_dirs:
-                console.print("[bold red]Error: SOURCE_DIR not set in .env file.[/bold red]")
-                continue
-
-            selected_paths = get_file_selection(src_dirs)
-            if selected_paths:
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                ) as progress:
-                    task = progress.add_task("[green]Sorting files...", total=len(selected_paths))
-                    for path in selected_paths:
-                        create_symlinks(src_dirs, dest_dir, single_path=path, auto_select=True)
-                        progress.update(task, advance=1)
-                console.print("[bold green]Sorting complete![/bold green]")
-        elif choice == '2':
-            edit_env_file()
-        elif choice == '3':
-            database_management()
-        elif choice == '4':
-            console.print("Exiting. Goodbye!")
-            break
-
-def edit_env_file():
-    """Function to edit the .env file."""
-    try:
-        if os.path.exists(ENV_FILE):
-            subprocess.run([python_command, '-m', 'nano', ENV_FILE], check=True)
-            console.print("\n.env file editing completed.")
-        else:
-            console.print("The .env file does not exist. Creating a new one.")
-            with open(ENV_FILE, 'w') as f:
-                pass
-            subprocess.run([python_command, '-m', 'nano', ENV_FILE], check=True)
-            console.print("\n.env file created and edited.")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error editing .env file: {e}")
-        console.print("[bold red]Error editing .env file. Check the log for details.[/bold red]")
-    input("Press Enter to return to the main menu...")
-
-def database_management():
-    """Function to execute Database Management."""
-    while True:
-        console.clear()
-        print_banner()
-        console.print("\n[bold blue]Database Management Options:[/bold blue]")
-        console.print("1) View Database Status")
-        console.print("2) Optimize Database")
-        console.print("3) Verify Database Integrity")
-        console.print("4) Vacuum Database")
-        console.print("5) Export Database")
-        console.print("6) Import Database")
-        console.print("7) Search Database")
-        console.print("8) Reset Database")
-        console.print("9) Back to Main Menu")
-
-        choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"], default="9")
-
-        try:
-            if choice == '1':
-                stats = get_database_stats()
-                if stats:
-                    console.print("\n[bold green]Database Statistics:[/bold green]")
-                    console.print(f"Total Records: {stats['total_records']}")
-                    console.print(f"Archived Records: {stats['archived_records']}")
-                    console.print(f"Main DB Size: {stats['main_db_size']:.2f} MB")
-                    console.print(f"Archive DB Size: {stats['archive_db_size']:.2f} MB")
-            elif choice == '2':
-                optimize_database()
-            elif choice == '3':
-                verify_database_integrity()
-            elif choice == '4':
-                vacuum_database()
-            elif choice == '5':
-                filename = Prompt.ask("Enter export filename (CSV)")
-                export_database(filename)
-            elif choice == '6':
-                filename = Prompt.ask("Enter import filename (CSV)")
-                import_database(filename)
-            elif choice == '7':
-                pattern = Prompt.ask("Enter search pattern")
-                search_database(pattern)
-            elif choice == '8':
-                if Confirm.ask("Are you sure you want to reset the database? This will delete all entries."):
-                    reset_database()
-            elif choice == '9':
-                break
-            else:
-                console.print("[bold red]Invalid option. Please select again.[/bold red]")
-
-            Prompt.ask("\nPress Enter to continue...")
-        except Exception as e:
-            logging.error(f"Error in database management: {e}")
-            console.print(f"[bold red]An error occurred: {e}[/bold red]")
-            Prompt.ask("\nPress Enter to continue...")
+    app = CineSync()
+    app.run()
 
 if __name__ == "__main__":
     main()

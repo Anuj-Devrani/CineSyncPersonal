@@ -1,0 +1,36 @@
+
+Screen {
+    layout: vertical;
+}
+
+.main-menu {
+    align: center middle;
+}
+
+.main-menu-buttons {
+    padding: 1;
+    width: 50%;
+}
+
+.db-menu {
+    align: center middle;
+}
+
+.banner {
+    width: 100%;
+    text-align: center;
+}
+
+.title {
+    width: 100%;
+    text-align: center;
+    padding: 1;
+    background: $primary;
+    color: $text;
+}
+
+.subtitle {
+    width: 100%;
+    text-align: center;
+    padding: 1;
+}
