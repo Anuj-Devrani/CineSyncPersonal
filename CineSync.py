@@ -168,18 +168,16 @@ class FileSelectionScreen(Screen):
         src_dirs, _ = get_directories()
         selection_list = self.query_one(SelectionList)
         options = []
-        log_message(f"Source directories: {src_dirs}", level="INFO")
         for src_dir in src_dirs:
-            log_message(f"Walking source directory: {src_dir}", level="INFO")
-            for root, dirs, files in os.walk(src_dir):
-                log_message(f"  Root: {root}, Dirs: {dirs}, Files: {files}", level="INFO")
-                for name in dirs:
-                    options.append(
-                        (f"{os.path.join(root, name)}/", os.path.join(root, name))
-                    )
-                for name in files:
-                    options.append((os.path.join(root, name), os.path.join(root, name)))
-        log_message(f"Generated options: {options}", level="INFO")
+            try:
+                for name in os.listdir(src_dir):
+                    full_path = os.path.join(src_dir, name)
+                    if os.path.isdir(full_path):
+                        options.append((f"{full_path}/", full_path))
+                    elif os.path.isfile(full_path):
+                        options.append((full_path, full_path))
+            except OSError as e:
+                log_message(f"Error listing directory {src_dir}: {e}", level="ERROR")
         selection_list.add_options(options)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
