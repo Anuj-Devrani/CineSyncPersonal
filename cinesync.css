@@ -58,11 +58,21 @@ Screen {
   color: #7f8c8d;
 }
 
-#file_checklist {
+Input {
+  width: 80%;
+  margin-bottom: 1;
+  border: thick #34495e;
+  background: #2c3e50;
+  color: #ecf0f1;
+}
+
+Tree {
+  width: 80%;
   height: 1fr;
   border: thick #34495e;
   margin: 1;
   background: #2c3e50;
+  color: #ecf0f1;
 }
 
 .file-selection-container {
@@ -76,11 +86,6 @@ Screen {
   text-align: center;
   padding: 1;
   color: #bdc3c7;
-}
-
-.file-selection-checklist {
-  width: 80%;
-  height: 1fr;
 }
 
 .file-selection-button {

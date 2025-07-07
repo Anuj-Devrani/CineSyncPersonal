@@ -12,8 +12,10 @@ from textual.widgets import (
     Static,
     Pretty,
     RichLog,
-    SelectionList,
+    Tree,
+    Input,
 )
+from textual.reactive import reactive  # New import
 from textual.containers import Container, Vertical
 from textual.screen import Screen
 from textual.binding import Binding
@@ -149,6 +151,9 @@ class FileSelectionScreen(Screen):
         ("escape", "app.pop_screen", "Back"),
     ]
 
+    filter = reactive("")
+    selected_paths = reactive(set())
+
     def compose(self) -> ComposeResult:
         yield Header(name="File Selection")
         yield Footer()
@@ -156,7 +161,8 @@ class FileSelectionScreen(Screen):
             yield Static(
                 "Select files and folders to sort:", classes="file-selection-prompt"
             )
-            yield SelectionList(id="file_checklist", classes="file-selection-checklist")
+            yield Input(placeholder="Search...", id="file_search_input")
+            yield Tree("Files and Folders", id="file_tree")
             yield Button(
                 "Sort Selected",
                 id="sort_selected",
@@ -165,27 +171,103 @@ class FileSelectionScreen(Screen):
             )
 
     def on_mount(self) -> None:
+        self.populate_tree()
+
+    def populate_tree(self) -> None:
+        tree = self.query_one(Tree)
+        tree.clear()
         src_dirs, _ = get_directories()
-        selection_list = self.query_one(SelectionList)
-        options = []
         for src_dir in src_dirs:
-            try:
-                for name in os.listdir(src_dir):
-                    full_path = os.path.join(src_dir, name)
-                    if os.path.isdir(full_path):
-                        options.append((f"{full_path}/", full_path))
-                    elif os.path.isfile(full_path):
-                        options.append((full_path, full_path))
-            except OSError as e:
-                log_message(f"Error listing directory {src_dir}: {e}", level="ERROR")
-        selection_list.add_options(options)
+            if os.path.exists(src_dir):
+                node = tree.root.add(
+                    src_dir,
+                    data=src_dir,
+                    allow_expand=True,
+                )
+                node.set_icon("📁")
+                self._get_directory_content(node, src_dir)
+            else:
+                log_message(f"Source directory not found: {src_dir}", level="WARNING")
+        tree.root.expand()
+
+    def _get_directory_content(self, node, directory_path: str) -> None:
+        try:
+            for name in os.listdir(directory_path):
+                full_path = os.path.join(directory_path, name)
+                if os.path.isdir(full_path):
+                    node.add(
+                        name,
+                        data=full_path,
+                        allow_expand=True,
+                    ).set_icon("📁")
+                else:
+                    node.add_leaf(name, data=full_path).set_icon("📄")
+        except OSError as e:
+            log_message(f"Error listing directory {directory_path}: {e}", level="ERROR")
+
+    def on_tree_node_expanded(self, event: Tree.NodeExpanded) -> None:
+        node = event.node
+        if node.data and os.path.isdir(node.data):
+            # Clear existing children to prevent duplicates on re-expansion
+            node.clear()
+            self._get_directory_content(node, node.data)
+
+    def _walk_tree_nodes(self, node):
+        yield node
+        for child in node.children:
+            yield from self._walk_tree_nodes(child)
+
+    def watch_filter(self, filter: str) -> None:
+        tree = self.query(Tree).first()
+        if tree is None:
+            return  # Should not happen if Tree is composed
+
+        for node in self._walk_tree_nodes(tree.root):
+            if node.data:
+                # Update the label to reflect selection status
+                current_label = node.text.plain.replace(" [green]✓[/green]", "")
+                node.set_label(
+                    f"{current_label} [green]✓[/green]"
+                    if node.data in self.selected_paths
+                    else current_label
+                )
+
+                # Filter logic
+                if filter:
+                    if filter.lower() in node.text.plain.lower():
+                        node.show()
+                        # Ensure all ancestors are shown if a child matches
+                        for ancestor in node.ancestors:
+                            ancestor.show()
+                        # Ensure all descendants are shown if the node matches
+                        for descendant in node.walk_children():
+                            descendant.show()
+                    else:
+                        node.hide()
+                        # Hide all descendants if the node is hidden
+                        for descendant in node.walk_children():
+                            descendant.hide()
+                else:
+                    # If filter is empty, show all nodes
+                    node.show()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.filter = event.value
+
+    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+        node = event.node
+        if node.data:
+            if node.data in self.selected_paths:
+                self.selected_paths.remove(node.data)
+            else:
+                self.selected_paths.add(node.data)
+            # Trigger a refresh of the filter to update the node's label with the checkmark
+            self.watch_filter(self.filter)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "sort_selected":
-            selection_list = self.query_one(SelectionList)
-            selected_paths = selection_list.selected
-            if selected_paths:
-                self.app.push_screen(LogScreen(selected_paths))
+            if self.selected_paths:
+                self.app.push_screen(LogScreen(list(self.selected_paths)))
 
 
 class LogScreen(Screen):
