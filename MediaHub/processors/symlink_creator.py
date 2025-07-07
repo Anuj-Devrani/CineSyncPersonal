@@ -505,37 +505,41 @@ def create_symlinks(
 
                             src_file = os.path.join(root, file)
 
-                    if (
-                        mode == "create"
-                        and src_file in processed_files_log
-                        and not force
-                    ):
-                        continue
+                            if (
+                                mode == "create"
+                                and src_file in processed_files_log
+                                and not force
+                            ):
+                                continue
 
-                    args = (
-                        src_file,
-                        root,
-                        file,
-                        dest_dir,
-                        actual_dir,
-                        tmdb_folder_id_enabled,
-                        rename_enabled,
-                        auto_select,
-                        dest_index,
-                        tmdb_id,
-                        imdb_id,
-                        tvdb_id,
-                        force_show,
-                        force_movie,
-                        season_number,
-                        episode_number,
-                        force_extra,
-                    )
-                    tasks.append(
-                        executor.submit(
-                            process_file, args, processed_files_log, force, console_log
-                        )
-                    )
+                            args = (
+                                src_file,
+                                root,
+                                file,
+                                dest_dir,
+                                actual_dir,
+                                tmdb_folder_id_enabled,
+                                rename_enabled,
+                                auto_select,
+                                dest_index,
+                                tmdb_id,
+                                imdb_id,
+                                tvdb_id,
+                                force_show,
+                                force_movie,
+                                season_number,
+                                episode_number,
+                                force_extra,
+                            )
+                            tasks.append(
+                                executor.submit(
+                                    process_file,
+                                    args,
+                                    processed_files_log,
+                                    force,
+                                    console_log,
+                                )
+                            )
 
             # Process completed tasks
             for task in as_completed(tasks):
