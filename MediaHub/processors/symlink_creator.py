@@ -427,6 +427,23 @@ def create_symlinks(
     # Load the record of processed files
     processed_files_log = load_processed_files()
 
+    # Initialize counters for progress tracking
+    total_files = 0
+    processed_files = 0
+
+    # First pass to count total files for progress tracking
+    if auto_select:
+        for src_dir in src_dirs:
+            if os.path.isfile(src_dir):
+                total_files += 1
+            else:
+                for root, _, files in os.walk(src_dir):
+                    total_files += len([f for f in files if get_known_types(f)])
+
+    log_message(f"Starting to process {total_files} files...", level="INFO")
+    if console_log:
+        console_log(f"Starting to process {total_files} files...")
+
     if auto_select:
         # Use thread pool for parallel processing when auto-select is enabled
         tasks = []
@@ -510,7 +527,23 @@ def create_symlinks(
                                 and src_file in processed_files_log
                                 and not force
                             ):
+                                if console_log:
+                                    console_log(
+                                        f"Skipping already processed file: {file}"
+                                    )
                                 continue
+
+                            processed_files += 1
+                            if console_log:
+                                progress = (processed_files / total_files) * 100
+                                console_log(
+                                    f"Processing file {processed_files}/{total_files} ({progress:.1f}%): {file}"
+                                )
+                            else:
+                                log_message(
+                                    f"Processing file {processed_files}/{total_files}: {file}",
+                                    level="INFO",
+                                )
 
                             args = (
                                 src_file,
@@ -544,15 +577,13 @@ def create_symlinks(
             # Process completed tasks
             for task in as_completed(tasks):
                 if error_event.is_set():
+                    error_msg = (
+                        "Error detected during task execution. Stopping all tasks."
+                    )
                     if console_log:
-                        console_log(
-                            "Error detected during task execution. Stopping all tasks."
-                        )
+                        console_log(error_msg, level="ERROR")
                     else:
-                        log_message(
-                            "Error detected during task execution. Stopping all tasks.",
-                            level="WARNING",
-                        )
+                        log_message(error_msg, level="ERROR")
                     return
 
                 try:
@@ -561,11 +592,40 @@ def create_symlinks(
                         dest_file, is_symlink, target_path = result
                         if mode == "monitor":
                             update_single_file_index(dest_file, is_symlink, target_path)
+
+                        processed_files += 1
+                        if console_log:
+                            progress = (processed_files / total_files) * 100
+                            console_log(
+                                f"Processed {processed_files}/{total_files} ({progress:.1f}%)"
+                            )
+
+                        log_message(
+                            f"Successfully processed: {os.path.basename(dest_file)}",
+                            level="INFO",
+                        )
+                        if is_symlink:
+                            log_message(
+                                f"Created symlink: {dest_file} -> {target_path}",
+                                level="DEBUG",
+                            )
+
                 except Exception as e:
+                    error_msg = f"Error processing task: {str(e)}"
                     if console_log:
-                        console_log(f"Error processing task: {str(e)}")
+                        console_log(error_msg, level="ERROR")
                     else:
-                        log_message(f"Error processing task: {str(e)}", level="ERROR")
+                        log_message(error_msg, level="ERROR")
+                    error_event.set()
+                    continue
+
+            # Final completion message
+            completion_msg = (
+                f"Processing completed. Successfully processed {processed_files} files."
+            )
+            if console_log:
+                console_log(completion_msg, level="SUCCESS")
+            log_message(completion_msg, level="INFO")
     else:
         # Process sequentially when auto-select is disabled
         for src_dir in src_dirs:
