@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import hashlib
 from dotenv import load_dotenv, find_dotenv
 from MediaHub.utils.file_utils import extract_resolution_from_filename, extract_folder_year, clean_query, extract_year, extract_resolution_from_folder
 from MediaHub.api.tmdb_api import search_tv_show
@@ -428,6 +429,10 @@ def process_show(src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_enab
                 new_name = f"{base_name} {''.join(details)}{os.path.splitext(file)[1]}"
             else:
                 new_name = f"{base_name}{os.path.splitext(file)[1]}"
+
+            # Generate a short hash of the source file to ensure uniqueness
+            file_hash = hashlib.sha256(src_file.encode('utf-8')).hexdigest()[:8]
+            new_name = f"{os.path.splitext(new_name)[0]} [{file_hash}]{os.path.splitext(new_name)[1]}"
 
             new_name = re.sub(r'-{2,}', '-', new_name).strip('-')
             dest_file = os.path.join(season_dest_path, new_name)

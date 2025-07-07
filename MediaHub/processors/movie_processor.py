@@ -2,6 +2,7 @@ import os
 import re
 import json
 import requests
+import hashlib
 from dotenv import load_dotenv, find_dotenv
 from MediaHub.utils.file_utils import *
 from MediaHub.api.tmdb_api import search_movie
@@ -281,14 +282,20 @@ def process_movie(src_file, root, file, dest_dir, actual_dir, tmdb_folder_id_ena
 
         details_str = ''.join(details)
 
+        # Generate a short hash of the source file to ensure uniqueness
+        file_hash = hashlib.sha256(src_file.encode('utf-8')).hexdigest()[:8]
+
         # Construct new filename only if there are details or an ID tag
         if id_tag or details_str:
             if id_tag and details_str:
-                enhanced_movie_folder = f"{clean_movie_name} {id_tag} - {details_str}".strip()
+                enhanced_movie_folder = f"{clean_movie_name} {id_tag} - {details_str} [{file_hash}]".strip()
             elif id_tag:
-                enhanced_movie_folder = f"{clean_movie_name} {id_tag}".strip()
+                enhanced_movie_folder = f"{clean_movie_name} {id_tag} [{file_hash}]".strip()
             else:
-                enhanced_movie_folder = f"{clean_movie_name} - {details_str}".strip()
+                enhanced_movie_folder = f"{clean_movie_name} - {details_str} [{file_hash}]".strip()
+        else:
+            # If no other details, just append the hash to the clean movie name
+            enhanced_movie_folder = f"{clean_movie_name} [{file_hash}]".strip()
 
         new_name = f"{enhanced_movie_folder}{os.path.splitext(file)[1]}"
     else:
