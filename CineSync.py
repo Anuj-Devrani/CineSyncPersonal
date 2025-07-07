@@ -13,6 +13,8 @@ from textual.widgets import (
     Pretty,
     RichLog,
     SelectionList,
+    Input,
+    Tree,
 )
 from textual.containers import Container, Vertical
 from textual.screen import Screen
@@ -156,7 +158,12 @@ class FileSelectionScreen(Screen):
             yield Static(
                 "Select files and folders to sort:", classes="file-selection-prompt"
             )
-            yield SelectionList(id="file_checklist", classes="file-selection-checklist")
+            yield Input(
+                placeholder="Search folders/files...",
+                id="search_bar",
+                classes="file-selection-search",
+            )
+            yield Tree("Sources", id="file_tree", classes="file-selection-tree")
             yield Button(
                 "Sort Selected",
                 id="sort_selected",
@@ -166,26 +173,68 @@ class FileSelectionScreen(Screen):
 
     def on_mount(self) -> None:
         src_dirs, _ = get_directories()
-        selection_list = self.query_one(SelectionList)
-        options = []
+        tree = self.query_one(Tree)
+        tree.clear()
         for src_dir in src_dirs:
-            try:
-                for name in os.listdir(src_dir):
-                    full_path = os.path.join(src_dir, name)
-                    if os.path.isdir(full_path):
-                        options.append((f"{full_path}/", full_path))
-                    elif os.path.isfile(full_path):
-                        options.append((full_path, full_path))
-            except OSError as e:
-                log_message(f"Error listing directory {src_dir}: {e}", level="ERROR")
-        selection_list.add_options(options)
+            self._add_directory_to_tree(tree.root, src_dir)
+        tree.root.expand()
+        self.selected_paths = set()
+        self.query_one(Input).on_change = self.on_search_change
+
+    def _add_directory_to_tree(self, parent, path):
+        import os
+
+        basename = os.path.basename(path.rstrip("/"))
+        node = parent.add(
+            f"[📁] [ ] {basename}", data={"path": path, "type": "dir", "checked": False}
+        )
+        try:
+            for name in sorted(os.listdir(path)):
+                full_path = os.path.join(path, name)
+                if os.path.isdir(full_path):
+                    self._add_directory_to_tree(node, full_path)
+                else:
+                    node.add(
+                        f"[📄] [ ] {name}",
+                        data={"path": full_path, "type": "file", "checked": False},
+                    )
+        except Exception:
+            pass
+
+    def on_tree_node_selected(self, event):
+        node = event.node
+        data = node.data
+        if data:
+            checked = not data.get("checked", False)
+            data["checked"] = checked
+            label_str = str(node.label)
+            if checked:
+                node.set_label(label_str.replace("[ ]", "[x]", 1))
+                self.selected_paths.add(data["path"])
+            else:
+                node.set_label(label_str.replace("[x]", "[ ]", 1))
+                self.selected_paths.discard(data["path"])
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "sort_selected":
-            selection_list = self.query_one(SelectionList)
-            selected_paths = selection_list.selected
-            if selected_paths:
-                self.app.push_screen(LogScreen(selected_paths))
+            if self.selected_paths:
+                self.app.push_screen(LogScreen(list(self.selected_paths)))
+
+    def on_search_change(self, value):
+        tree = self.query_one(Tree)
+        query = value.strip().lower()
+        self._filter_tree(tree.root, query)
+
+    def _filter_tree(self, node, query):
+        show = False
+        for child in node.children:
+            child_visible = self._filter_tree(child, query)
+            show = show or child_visible
+        label = node.label.lower()
+        if query in label:
+            show = True
+        node.visible = show
+        return show
 
 
 class LogScreen(Screen):
