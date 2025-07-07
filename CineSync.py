@@ -234,21 +234,23 @@ class FileSelectionScreen(Screen):
                 # Filter logic
                 if filter:
                     if filter.lower() in node.text.plain.lower():
-                        node.show()
+                        node.visible = True
                         # Ensure all ancestors are shown if a child matches
                         for ancestor in node.ancestors:
-                            ancestor.show()
+                            ancestor.visible = True
                         # Ensure all descendants are shown if the node matches
-                        for descendant in node.walk_children():
-                            descendant.show()
+                        for descendant in self._walk_tree_nodes(node):
+                            if descendant != node: # Exclude the node itself
+                                descendant.visible = True
                     else:
-                        node.hide()
+                        node.visible = False
                         # Hide all descendants if the node is hidden
-                        for descendant in node.walk_children():
-                            descendant.hide()
+                        for descendant in self._walk_tree_nodes(node):
+                            if descendant != node: # Exclude the node itself
+                                descendant.visible = False
                 else:
                     # If filter is empty, show all nodes
-                    node.show()
+                    node.visible = True
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self.filter = event.value
