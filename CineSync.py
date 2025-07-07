@@ -180,11 +180,10 @@ class FileSelectionScreen(Screen):
         for src_dir in src_dirs:
             if os.path.exists(src_dir):
                 node = tree.root.add(
-                    src_dir,
+                    f"📁 {src_dir}",
                     data=src_dir,
                     allow_expand=True,
                 )
-                node.set_icon("📁")
                 self._get_directory_content(node, src_dir)
             else:
                 log_message(f"Source directory not found: {src_dir}", level="WARNING")
@@ -196,12 +195,12 @@ class FileSelectionScreen(Screen):
                 full_path = os.path.join(directory_path, name)
                 if os.path.isdir(full_path):
                     node.add(
-                        name,
+                        f"📁 {name}",
                         data=full_path,
                         allow_expand=True,
-                    ).set_icon("📁")
+                    )
                 else:
-                    node.add_leaf(name, data=full_path).set_icon("📄")
+                    node.add_leaf(f"📄 {name}", data=full_path)
         except OSError as e:
             log_message(f"Error listing directory {directory_path}: {e}", level="ERROR")
 
