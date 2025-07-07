@@ -488,15 +488,12 @@ def create_symlinks(
                     )
                 else:
                     # Handle directory
-                    actual_dir = os.path.basename(os.path.normpath(src_dir))
+                    base_src_dir = os.path.normpath(src_dir)
                     if console_log:
-                        console_log(
-                            f"Scanning source directory: {src_dir} (actual: {actual_dir})"
-                        )
+                        console_log(f"Scanning source directory: {base_src_dir}")
                     else:
                         log_message(
-                            f"Scanning source directory: {src_dir} (actual: {actual_dir})",
-                            level="INFO",
+                            f"Scanning source directory: {base_src_dir}", level="INFO"
                         )
 
                     # Get appropriate destination index based on mode
@@ -506,7 +503,16 @@ def create_symlinks(
                         else build_dest_index(dest_dir)
                     )
 
-                    for root, _, files in os.walk(src_dir):
+                    for root, _, files in os.walk(base_src_dir):
+                        # Calculate the relative path from the source directory
+                        rel_path = os.path.relpath(root, base_src_dir)
+                        if rel_path == ".":
+                            actual_dir = os.path.basename(base_src_dir)
+                        else:
+                            actual_dir = os.path.join(
+                                os.path.basename(base_src_dir), rel_path
+                            )
+
                         for file in files:
                             if error_event.is_set():
                                 if console_log:
@@ -680,15 +686,12 @@ def create_symlinks(
                             update_single_file_index(dest_file, is_symlink, target_path)
                 else:
                     # Handle directory
-                    actual_dir = os.path.basename(os.path.normpath(src_dir))
+                    base_src_dir = os.path.normpath(src_dir)
                     if console_log:
-                        console_log(
-                            f"Scanning source directory: {src_dir} (actual: {actual_dir})"
-                        )
+                        console_log(f"Scanning source directory: {base_src_dir}")
                     else:
                         log_message(
-                            f"Scanning source directory: {src_dir} (actual: {actual_dir})",
-                            level="INFO",
+                            f"Scanning source directory: {base_src_dir}", level="INFO"
                         )
 
                     # Get appropriate destination index based on mode
@@ -698,7 +701,16 @@ def create_symlinks(
                         else build_dest_index(dest_dir)
                     )
 
-                    for root, _, files in os.walk(src_dir):
+                    for root, _, files in os.walk(base_src_dir):
+                        # Calculate the relative path from the source directory
+                        rel_path = os.path.relpath(root, base_src_dir)
+                        if rel_path == ".":
+                            actual_dir = os.path.basename(base_src_dir)
+                        else:
+                            actual_dir = os.path.join(
+                                os.path.basename(base_src_dir), rel_path
+                            )
+
                         for file in files:
                             if error_event.is_set():
                                 if console_log:
