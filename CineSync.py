@@ -224,7 +224,7 @@ class FileSelectionScreen(Screen):
         for node in self._walk_tree_nodes(tree.root):
             if node.data:
                 # Update the label to reflect selection status
-                current_label = node.text.plain.replace(" [green]✓[/green]", "")
+                current_label = node.label.plain.replace(" [green]✓[/green]", "")
                 node.set_label(
                     f"{current_label} [green]✓[/green]"
                     if node.data in self.selected_paths
