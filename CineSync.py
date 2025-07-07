@@ -16,7 +16,7 @@ from textual.widgets import (
     Input,
     Tree,
 )
-from textual.containers import Container, Vertical
+from textual.containers import Container, Vertical, Horizontal
 from textual.screen import Screen
 from textual.binding import Binding
 from MediaHub.processors.symlink_creator import create_symlinks
@@ -158,11 +158,13 @@ class FileSelectionScreen(Screen):
             yield Static(
                 "Select files and folders to sort:", classes="file-selection-prompt"
             )
-            yield Input(
-                placeholder="Search folders/files...",
-                id="search_bar",
-                classes="file-selection-search",
-            )
+            with Horizontal():
+                yield Input(
+                    placeholder="Search folders/files...",
+                    id="search_bar",
+                    classes="file-selection-search",
+                )
+                yield Button("Apply", id="search_apply", classes="file-selection-apply")
             yield Tree("Sources", id="file_tree", classes="file-selection-tree")
             yield Button(
                 "Sort Selected",
@@ -175,31 +177,33 @@ class FileSelectionScreen(Screen):
         src_dirs, _ = get_directories()
         tree = self.query_one(Tree)
         tree.clear()
-        for src_dir in src_dirs:
-            self._add_directory_to_tree(tree.root, src_dir)
-        tree.root.expand()
         self.selected_paths = set()
-        self.query_one(Input).on_change = self.on_search_change
+        # Add only top-level source directories
+        for src_dir in src_dirs:
+            self._add_full_node(tree.root, src_dir)
+        tree.root.expand()
+        self.query_one("#search_apply").on_click = self.on_search_apply
 
-    def _add_directory_to_tree(self, parent, path):
+    def _add_full_node(self, parent, path):
         import os
 
-        basename = os.path.basename(path.rstrip("/"))
+        basename = os.path.basename(path)
         node = parent.add(
-            f"[📁] [ ] {basename}", data={"path": path, "type": "dir", "checked": False}
+            f"[📁] [ ] {basename}",
+            data={"path": path, "type": "dir", "checked": False},
         )
         try:
-            for name in sorted(os.listdir(path)):
-                full_path = os.path.join(path, name)
-                if os.path.isdir(full_path):
-                    self._add_directory_to_tree(node, full_path)
-                else:
-                    node.add(
-                        f"[📄] [ ] {name}",
-                        data={"path": full_path, "type": "file", "checked": False},
-                    )
-        except Exception:
-            pass
+            with os.scandir(path) as it:
+                for entry in it:
+                    if entry.is_dir():
+                        self._add_full_node(node, entry.path)
+                    elif entry.is_file():
+                        node.add(
+                            f"[📄] [ ] {entry.name}",
+                            data={"path": entry.path, "type": "file", "checked": False},
+                        )
+        except Exception as e:
+            print(f"EXCEPTION in _add_full_node: {e}")
 
     def on_tree_node_selected(self, event):
         node = event.node
@@ -220,21 +224,47 @@ class FileSelectionScreen(Screen):
             if self.selected_paths:
                 self.app.push_screen(LogScreen(list(self.selected_paths)))
 
-    def on_search_change(self, value):
-        tree = self.query_one(Tree)
-        query = value.strip().lower()
-        self._filter_tree(tree.root, query)
+    def on_search_apply(self, event):
+        value = self.query_one("#search_bar").value.strip()
+        self._rebuild_tree_with_search(value)
 
-    def _filter_tree(self, node, query):
-        show = False
-        for child in node.children:
-            child_visible = self._filter_tree(child, query)
-            show = show or child_visible
-        label = node.label.lower()
-        if query in label:
-            show = True
-        node.visible = show
-        return show
+    def _rebuild_tree_with_search(self, query):
+        # Rebuild the tree, only showing matching nodes (and their parents)
+        src_dirs, _ = get_directories()
+        tree = self.query_one(Tree)
+        tree.clear()
+        if not query:
+            for src_dir in src_dirs:
+                self._add_full_node(tree.root, src_dir)
+            tree.root.expand()
+            return
+        # If query, do a shallow search (top-level only, for performance)
+        for src_dir in src_dirs:
+            import os
+
+            basename = os.path.basename(src_dir.rstrip("/"))
+            if query.lower() in basename.lower():
+                self._add_full_node(tree.root, src_dir)
+            else:
+                # Search immediate children
+                try:
+                    for name in sorted(os.listdir(src_dir)):
+                        if query.lower() in name.lower():
+                            full_path = os.path.join(src_dir, name)
+                            if os.path.isdir(full_path):
+                                self._add_full_node(tree.root, full_path)
+                            else:
+                                tree.root.add(
+                                    f"[📄] [ ] {name}",
+                                    data={
+                                        "path": full_path,
+                                        "type": "file",
+                                        "checked": False,
+                                    },
+                                )
+                except Exception:
+                    pass
+        tree.root.expand()
 
 
 class LogScreen(Screen):
